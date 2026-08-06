@@ -1,0 +1,4 @@
+asset_id,asset_name,asset_type,operator_name,location_id,location_name,country,latitude,longitude,max_wind_kmh,max_gust_kmh,max_wave_height_m,minimum_visibility_m
+AG_OFFSHORE_01,Arabian Gulf Offshore Alpha,Offshore Platform,Portfolio Demo,AG_ALPHA,Arabian Gulf Alpha,UAE,25.6500,54.8500,35,50,2.5,2000
+AG_OFFSHORE_02,Arabian Gulf Offshore Bravo,Offshore Platform,Portfolio Demo,AG_BRAVO,Arabian Gulf Bravo,UAE,25.2000,53.9000,40,55,3.0,1500
+AG_TERMINAL_01,Arabian Gulf Marine Terminal,Marine Terminal,Portfolio Demo,AG_TERMINAL,UAE Marine Terminal,UAE,24.9500,54.6500,30,45,2.0,2500
