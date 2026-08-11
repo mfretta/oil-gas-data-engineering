@@ -12,30 +12,35 @@ from src.warehouse.build_integrated_views import (
 from src.quality.validate_warehouse import (
     validate_warehouse,
 )
+from src.warehouse.pipeline_observability import (
+    start_pipeline_run,
+    finish_pipeline_run_success,
+    finish_pipeline_run_failed,
+    save_quality_results,
+)
 
 
-def run_complete_pipeline() -> None:
+def run_complete_pipeline():
     """
-    Run the complete Oil & Gas Data Engineering project.
+    Run the complete Oil & Gas Data Engineering pipeline.
 
-    Execution order:
-    1. Offshore weather and marine pipeline
-    2. Baker Hughes rig-count warehouse
-    3. Integrated analytical views
-    4. Warehouse data-quality validation
+    Returns
+    -------
+    list
+        Warehouse data-quality validation results.
     """
 
-    logger.info(
-        "=" * 70
-    )
+    logger.info("=" * 70)
 
     logger.info(
         "Starting Oil & Gas Data Engineering pipeline"
     )
 
-    logger.info(
-        "=" * 70
-    )
+    logger.info("=" * 70)
+
+    # ======================================================
+    # STAGE 1 - WEATHER
+    # ======================================================
 
     logger.info(
         "Stage 1/4 - Running offshore weather pipeline"
@@ -47,6 +52,10 @@ def run_complete_pipeline() -> None:
         "Stage 1/4 completed - Weather pipeline"
     )
 
+    # ======================================================
+    # STAGE 2 - RIG COUNT
+    # ======================================================
+
     logger.info(
         "Stage 2/4 - Running rig-count warehouse pipeline"
     )
@@ -57,6 +66,10 @@ def run_complete_pipeline() -> None:
         "Stage 2/4 completed - Rig-count pipeline"
     )
 
+    # ======================================================
+    # STAGE 3 - ANALYTICAL VIEWS
+    # ======================================================
+
     logger.info(
         "Stage 3/4 - Building integrated analytical views"
     )
@@ -66,6 +79,10 @@ def run_complete_pipeline() -> None:
     logger.success(
         "Stage 3/4 completed - Integrated views"
     )
+
+    # ======================================================
+    # STAGE 4 - DATA QUALITY
+    # ======================================================
 
     logger.info(
         "Stage 4/4 - Running warehouse quality validation"
@@ -95,25 +112,53 @@ def run_complete_pipeline() -> None:
         "Stage 4/4 completed - Quality validation"
     )
 
-    logger.info(
-        "=" * 70
-    )
+    # ======================================================
+    # SUCCESS
+    # ======================================================
+
+    logger.info("=" * 70)
 
     logger.success(
         "Complete Oil & Gas Data Engineering pipeline "
         "finished successfully"
     )
 
-    logger.info(
-        "=" * 70
-    )
+    logger.info("=" * 70)
+
+    return validation_results
 
 
 def main() -> None:
-    try:
-        run_complete_pipeline()
+    pipeline_run_key = start_pipeline_run(
+        "oil-gas-data-engineering"
+    )
 
-    except Exception:
+    try:
+        validation_results = (
+            run_complete_pipeline()
+        )
+
+        save_quality_results(
+            pipeline_run_key,
+            validation_results,
+        )
+
+        finish_pipeline_run_success(
+            pipeline_run_key
+        )
+
+        logger.success(
+            "Pipeline observability records persisted "
+            "successfully | run_key={}",
+            pipeline_run_key,
+        )
+
+    except Exception as error:
+        finish_pipeline_run_failed(
+            pipeline_run_key,
+            str(error),
+        )
+
         logger.exception(
             "Complete Oil & Gas pipeline failed"
         )
