@@ -1,82 +1,58 @@
-# Oil & Gas Data Engineering Project
+# Oil & Gas Data Engineering Platform
 
-## Objective
+An end-to-end Data Engineering portfolio project integrating offshore weather, marine conditions, energy prices, rig activity, PostgreSQL analytics, operational risk logic, data quality, observability, and a Streamlit frontend.
 
-Develop a production-style ETL pipeline for the Oil & Gas industry using:
-
-- Python
-- PostgreSQL
-- SQL
-- REST APIs
-- Data Warehouse
-- Power BI
---# - Docker
---# - Airflow
-
-## Pipeline
-
-API → Extract → Transform → PostgreSQL → Data Warehouse → Analytics
-
-# Oil & Gas Data Engineering Project
-
-End-to-end Data Engineering project combining atmospheric forecasts, marine forecasts, energy prices, and global rig-count data into a PostgreSQL analytical warehouse.
-
-The project simulates a real offshore energy decision-support platform using Python, SQL, APIs, Parquet, PostgreSQL, operational risk logic, and analytical views.
+The project demonstrates how heterogeneous operational and market data can be ingested, transformed, modeled, validated, monitored, and exposed through analytical views and dashboards.
 
 ---
 
 ## Project Objectives
 
-The pipeline integrates multiple data domains relevant to offshore oil and gas operations:
+This project was designed to simulate a realistic Oil & Gas data platform capable of supporting:
 
-- Atmospheric weather forecasts
-- Marine and wave forecasts
-- Offshore operational weather risk
-- Baker Hughes worldwide rig counts
-- EIA energy prices
-- Asset and location metadata
-
-The final warehouse is designed to support Power BI dashboards and operational analytics.
+- Offshore operational weather monitoring
+- Marine-condition awareness
+- Operational weather-risk classification
+- Global drilling activity analysis
+- Energy-price intelligence
+- Dimensional warehouse modeling
+- Automated data-quality validation
+- Pipeline observability
+- Executive and operational dashboards
 
 ---
 
 ## Architecture
 
 ```text
-Open-Meteo Atmospheric API
-Open-Meteo Marine API
-EIA Energy API
-Baker Hughes Rig Count Workbook
-            |
-            v
-        Extraction
-            |
-            v
-         Bronze
-      JSON / Excel
-            |
-            v
-      Transformation
-            |
-            v
-         Silver
-         Parquet
-            |
-            v
-      PostgreSQL DW
-            |
-     +------+------+------+
-     |             |      |
-  Weather        Energy   Rig Count
-     |
-     v
-Operational Risk Engine
-     |
-     v
-Analytical SQL Views
-     |
-     v
-Data Quality Validation
-     |
-     v
-Power BI
+Open-Meteo Atmospheric API ──┐
+Open-Meteo Marine API ───────┤
+EIA API ─────────────────────┼──► Bronze Layer
+Baker Hughes Workbook ───────┘
+                                  │
+                                  ▼
+                            Silver Layer
+                              Parquet
+                                  │
+                                  ▼
+                             PostgreSQL
+                           Dimensional DW
+                                  │
+                 ┌────────────────┼────────────────┐
+                 │                │                │
+                 ▼                ▼                ▼
+              Weather          Rig Count        Energy
+                 │
+                 ▼
+         Operational Risk
+                 │
+                 ▼
+        Analytical SQL Views
+                 │
+         ┌───────┴─────────┐
+         ▼                 ▼
+   Data Quality       Observability
+         │                 │
+         └────────┬────────┘
+                  ▼
+          Streamlit Dashboard
