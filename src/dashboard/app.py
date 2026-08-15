@@ -2,420 +2,135 @@ from __future__ import annotations
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+
+from loguru import logger
 from sqlalchemy import text
 
 from src.config.database import get_engine
 
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
-    page_title="Oil & Gas Intelligence",
-    page_icon="◈",
+    page_title="Oil & Gas Operations Intelligence",
+    page_icon="🌊",
     layout="wide",
-    initial_sidebar_state="locked",
+    initial_sidebar_state="expanded",
 )
 
 
 # ============================================================
-# THEME / CSS
+# APPLICATION STYLE
 # ============================================================
 
 st.html(
     """
     <style>
 
-    /* ======================================================
-       ROOT COLORS
-       ====================================================== */
-
-    :root {
-        --app-bg: #07111f;
-        --app-bg-2: #0b1626;
-        --sidebar-bg: #07101d;
-        --panel-bg: #101d2d;
-        --panel-bg-2: #0d1928;
-
-        --text-main: #f8fafc;
-        --text-secondary: #94a3b8;
-        --text-muted: #64748b;
-
-        --blue: #38bdf8;
-        --green: #22c55e;
-        --amber: #f59e0b;
-        --red: #ef4444;
-    }
-
-
-    /* ======================================================
-       GLOBAL APP
-       ====================================================== */
-
     html,
     body,
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"],
     .stApp {
-        background:
-            linear-gradient(
-                180deg,
-                var(--app-bg) 0%,
-                var(--app-bg-2) 100%
-            ) !important;
-
-        color: var(--text-main) !important;
+        background-color: #07111F;
+        color: #F8FAFC;
     }
-
-    html,
-    body {
-        font-family:
-            Inter,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-    }
-
-
-    /* ======================================================
-       FIX STREAMLIT WHITE HEADER
-       IMPORTANT:
-       We COLOR the header.
-       We DO NOT hide or collapse it.
-       ====================================================== */
 
     header,
     header[data-testid="stHeader"],
     [data-testid="stHeader"],
     .stAppHeader,
     div[data-testid="stAppViewContainer"] > header {
-        background: #07111f !important;
-        background-color: #07111f !important;
-        color: #cbd5e1 !important;
-        box-shadow: none !important;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.08) !important;
+        background-color: #07111F !important;
     }
-
-    header * {
-        color: #94a3b8 !important;
-    }
-
-    [data-testid="stToolbar"],
-    [data-testid="stToolbarActions"],
-    [data-testid="stMainMenu"],
-    [data-testid="stStatusWidget"] {
-        background: transparent !important;
-    }
-
-    [data-testid="stDecoration"] {
-        background: transparent !important;
-    }
-
-
-    /* ======================================================
-       MAIN CONTENT
-       ====================================================== */
-
-    .block-container {
-        padding-top: 1.25rem !important;
-        padding-bottom: 3rem !important;
-        max-width: 1650px !important;
-    }
-
-
-    /* ======================================================
-       SIDEBAR
-       ====================================================== */
 
     [data-testid="stSidebar"] {
-        background:
-            linear-gradient(
-                180deg,
-                #07101d 0%,
-                #091523 100%
-            ) !important;
-
-        border-right:
-            1px solid rgba(148, 163, 184, 0.10) !important;
+        background-color: #0B1626;
+        border-right: 1px solid #1E293B;
     }
 
     [data-testid="stSidebarContent"] {
-        background: transparent !important;
+        background-color: #0B1626;
     }
 
-    [data-testid="stSidebar"] * {
-        color: #cbd5e1;
+    h1,
+    h2,
+    h3,
+    h4 {
+        color: #F8FAFC;
     }
 
-    [data-testid="stSidebar"] label {
-        color: #cbd5e1 !important;
-    }
-
-    [data-testid="stSidebar"] hr {
-        border-color: rgba(148, 163, 184, 0.10);
-    }
-
-
-    /* ======================================================
-       RADIO NAVIGATION
-       ====================================================== */
-
-    [data-testid="stRadio"] label {
-        color: #cbd5e1 !important;
-    }
-
-    [data-testid="stRadio"] p {
-        color: #cbd5e1 !important;
-    }
-
-
-    /* ======================================================
-       HERO
-       ====================================================== */
-
-    .hero {
-        padding: 30px 32px;
-        margin-bottom: 28px;
-
-        border-radius: 20px;
-
-        background:
-            radial-gradient(
-                circle at top right,
-                rgba(14, 165, 233, 0.25),
-                transparent 36%
-            ),
-            linear-gradient(
-                135deg,
-                #101c30,
-                #10344a
-            );
-
-        border:
-            1px solid rgba(148, 163, 184, 0.20);
-
-        box-shadow:
-            0 18px 45px rgba(0, 0, 0, 0.22);
-    }
-
-    .hero-eyebrow {
-        color: #38bdf8;
-        font-size: 12px;
+    .dashboard-title {
+        font-size: 2.15rem;
         font-weight: 700;
-        letter-spacing: 1.7px;
-        text-transform: uppercase;
-        margin-bottom: 12px;
+        color: #F8FAFC;
+        margin-bottom: 0.15rem;
     }
 
-    .hero-title {
-        color: #f8fafc;
-        font-size: 36px;
-        line-height: 1.15;
-        font-weight: 760;
-        margin-bottom: 10px;
-    }
-
-    .hero-description {
-        color: #a6b8cc;
-        font-size: 15px;
-        line-height: 1.6;
-        max-width: 1050px;
-    }
-
-
-    /* ======================================================
-       SECTION HEADERS
-       ====================================================== */
-
-    .section-label {
-        margin-top: 18px;
-        margin-bottom: 6px;
-
-        color: #6e93bd;
-
-        text-transform: uppercase;
-        letter-spacing: 1.4px;
-
-        font-size: 11px;
-        font-weight: 700;
+    .dashboard-subtitle {
+        font-size: 1rem;
+        color: #94A3B8;
+        margin-bottom: 1.5rem;
     }
 
     .section-title {
-        color: #f8fafc;
-        font-size: 23px;
-        font-weight: 700;
-        margin-bottom: 18px;
-    }
-
-
-    /* ======================================================
-       FRESHNESS
-       ====================================================== */
-
-    .freshness-bar {
-        padding: 13px 18px;
-        margin-bottom: 26px;
-
-        border-radius: 12px;
-
-        background: rgba(15, 27, 43, 0.94);
-
-        border:
-            1px solid rgba(148, 163, 184, 0.14);
-
-        color: #9db1c8;
-
-        font-size: 12px;
-    }
-
-    .freshness-bar b {
-        color: #dbeafe;
-    }
-
-
-    /* ======================================================
-       KPI CARDS
-       ====================================================== */
-
-    .kpi-card {
-        min-height: 125px;
-        padding: 20px;
-
-        border-radius: 17px;
-
-        background:
-            linear-gradient(
-                145deg,
-                #122033,
-                #0f1b2b
-            );
-
-        border:
-            1px solid rgba(148, 163, 184, 0.14);
-
-        box-shadow:
-            0 8px 30px rgba(0, 0, 0, 0.15);
-    }
-
-    .kpi-label {
-        color: #8fb3dc;
-
-        font-size: 12px;
+        font-size: 1.25rem;
         font-weight: 650;
-
-        text-transform: uppercase;
-        letter-spacing: 0.7px;
-
-        margin-bottom: 12px;
+        color: #E2E8F0;
+        margin-top: 0.5rem;
+        margin-bottom: 0.75rem;
     }
 
-    .kpi-value {
-        color: #f8fafc;
-
-        font-size: 30px;
-        line-height: 1;
-
-        font-weight: 760;
-
-        margin-bottom: 12px;
+    div[data-testid="stMetric"] {
+        background-color: #0F1B2B;
+        border: 1px solid #1E293B;
+        border-radius: 12px;
+        padding: 12px;
     }
 
-    .kpi-note {
-        color: #7089a6;
-        font-size: 12px;
-        line-height: 1.4;
+    div[data-testid="stMetricLabel"] {
+        color: #94A3B8;
     }
 
-    .status-green {
-        border-left: 4px solid #22c55e;
+    div[data-testid="stMetricValue"] {
+        color: #F8FAFC;
     }
 
-    .status-amber {
-        border-left: 4px solid #f59e0b;
+    .status-success {
+        border-left: 4px solid #22C55E;
+        background: #0F1B2B;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 10px;
     }
 
-    .status-red {
-        border-left: 4px solid #ef4444;
+    .status-warning {
+        border-left: 4px solid #F59E0B;
+        background: #0F1B2B;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 10px;
     }
 
-    .green-text {
-        color: #2ee67c;
+    .status-danger {
+        border-left: 4px solid #EF4444;
+        background: #0F1B2B;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 10px;
     }
 
-    .amber-text {
-        color: #ffb71b;
+    .small-muted {
+        color: #94A3B8;
+        font-size: 0.88rem;
     }
 
-    .red-text {
-        color: #ff5e66;
-    }
-
-
-    /* ======================================================
-       SELECTBOX
-       ====================================================== */
-
-    [data-baseweb="select"] > div {
-        background: #f8fafc !important;
-        border-radius: 10px !important;
-    }
-
-    [data-baseweb="select"] span {
-        color: #0f172a !important;
-    }
-
-
-    /* ======================================================
-       TABS
-       ====================================================== */
-
-    button[data-baseweb="tab"] {
-        color: #94a3b8 !important;
-    }
-
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #f8fafc !important;
-    }
-
-
-    /* ======================================================
-       DATAFRAME
-       ====================================================== */
-
-    [data-testid="stDataFrame"] {
-        border-radius: 14px;
-        overflow: hidden;
-
-        border:
-            1px solid rgba(148, 163, 184, 0.13);
-    }
-
-
-    /* ======================================================
-       BUTTONS
-       ====================================================== */
-
-    .stDownloadButton button {
-        background:
-            rgba(14, 165, 233, 0.10) !important;
-
-        color: #e0f2fe !important;
-
-        border:
-            1px solid rgba(56, 189, 248, 0.35) !important;
-
-        border-radius: 10px !important;
-    }
-
-    .stDownloadButton button:hover {
-        background:
-            rgba(14, 165, 233, 0.18) !important;
-
-        border-color:
-            #38bdf8 !important;
+    hr {
+        border-color: #1E293B;
     }
 
     </style>
@@ -427,1337 +142,2157 @@ st.html(
 # DATABASE
 # ============================================================
 
-engine = get_engine()
-
-
-@st.cache_data(ttl=300)
-def load_query(query: str) -> pd.DataFrame:
-    with engine.connect() as connection:
-        return pd.read_sql(
-            text(query),
-            connection,
-        )
+@st.cache_resource
+def get_database_engine():
+    return get_engine()
 
 
 def safe_query(
     query: str,
-    dataset_name: str,
+    params: dict | None = None,
 ) -> pd.DataFrame:
+    """
+    Execute SQL without crashing the dashboard.
+
+    Returns an empty DataFrame when the query fails.
+    """
+
     try:
-        return load_query(query)
+        engine = get_database_engine()
+
+        with engine.connect() as connection:
+            return pd.read_sql(
+                text(query),
+                connection,
+                params=params,
+            )
 
     except Exception as error:
-        st.warning(
-            f"{dataset_name} could not be loaded."
+
+        logger.warning(
+            "Dashboard query failed: {}",
+            error,
         )
 
-        st.caption(
-            str(error)
+        st.warning(
+            f"Data source currently unavailable: {error}"
         )
 
         return pd.DataFrame()
 
 
 # ============================================================
-# DATA
+# GENERIC HELPERS
 # ============================================================
 
-executive = safe_query(
+def first_existing_column(
+    dataframe: pd.DataFrame,
+    candidates: list[str],
+) -> str | None:
     """
-    SELECT *
-    FROM vw_executive_energy_operations;
-    """,
-    "Executive data",
-)
-
-
-assets = safe_query(
+    Return the first candidate column found in a DataFrame.
     """
-    SELECT *
-    FROM vw_asset_operational_kpis
-    ORDER BY asset_name;
-    """,
-    "Asset KPI data",
-)
+
+    for column in candidates:
+
+        if column in dataframe.columns:
+            return column
+
+    return None
 
 
-weather = safe_query(
+def safe_number(
+    value,
+    decimals: int = 1,
+    default: str = "—",
+) -> str:
     """
-    SELECT *
-    FROM vw_latest_offshore_forecast
-    ORDER BY
-        asset_name,
-        forecast_valid_time;
-    """,
-    "Weather forecast data",
-)
-
-
-critical = safe_query(
+    Safely format numeric values.
     """
-    SELECT *
-    FROM vw_next_weather_critical_event
-    ORDER BY forecast_valid_time;
-    """,
-    "Critical weather data",
-)
+
+    if value is None:
+        return default
+
+    try:
+
+        if pd.isna(value):
+            return default
+
+        return f"{float(value):,.{decimals}f}"
+
+    except Exception:
+        return str(value)
 
 
-rig = safe_query(
+def safe_integer(
+    value,
+    default: str = "—",
+) -> str:
     """
-    SELECT *
-    FROM vw_rig_count_region_monthly
-    ORDER BY date;
-    """,
-    "Rig-count data",
-)
-
-
-energy = safe_query(
+    Safely format integer-like values.
     """
-    SELECT *
-    FROM vw_daily_oil_price
-    ORDER BY date;
-    """,
-    "Energy price data",
-)
+
+    if value is None:
+        return default
+
+    try:
+
+        if pd.isna(value):
+            return default
+
+        return f"{int(round(float(value))):,}"
+
+    except Exception:
+        return str(value)
 
 
-pipeline_run = safe_query(
-    """
-    SELECT *
-    FROM vw_latest_pipeline_run;
-    """,
-    "Latest pipeline run",
-)
-
-
-quality_summary = safe_query(
-    """
-    SELECT *
-    FROM vw_latest_quality_summary;
-    """,
-    "Latest quality summary",
-)
-
-
-quality_checks = safe_query(
-    """
-    SELECT *
-    FROM vw_latest_quality_checks
-    ORDER BY
-        passed ASC,
-        check_name;
-    """,
-    "Quality checks",
-)
-
-
-pipeline_history = safe_query(
-    """
-    SELECT *
-    FROM vw_pipeline_run_history
-    ORDER BY started_at DESC
-    LIMIT 20;
-    """,
-    "Pipeline history",
-)
-
-
-warehouse_volume = safe_query(
-    """
-    SELECT
-        'Atmospheric Forecast' AS dataset,
-        COUNT(*) AS row_count,
-        MAX(forecast_reference_time) AS latest_update
-    FROM fact_weather_forecast
-
-    UNION ALL
-
-    SELECT
-        'Marine Forecast',
-        COUNT(*),
-        MAX(forecast_reference_time)
-    FROM fact_marine_forecast
-
-    UNION ALL
-
-    SELECT
-        'Operational Risk',
-        COUNT(*),
-        MAX(forecast_reference_time)
-    FROM fact_operational_weather_risk
-
-    UNION ALL
-
-    SELECT
-        'Rig Count',
-        COUNT(*),
-        MAX(t.timestamp)
-    FROM fact_rig_count AS f
-    INNER JOIN dim_time AS t
-        ON t.time_key = f.time_key
-
-    UNION ALL
-
-    SELECT
-        'Energy Price',
-        COUNT(*),
-        MAX(t.timestamp)
-    FROM fact_oil_price AS f
-    INNER JOIN dim_time AS t
-        ON t.time_key = f.time_key;
-    """,
-    "Warehouse volume",
-)
-
-
-# ============================================================
-# HELPERS
-# ============================================================
-
-def style_chart(
+def configure_plot(
     figure,
-    height: int = 400,
+    height: int | None = None,
 ):
+    """
+    Apply common dashboard Plotly styling.
+    """
+
     figure.update_layout(
-        height=height,
-
-        margin=dict(
-            l=20,
-            r=20,
-            t=55,
-            b=20,
-        ),
-
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-
+        paper_bgcolor="#07111F",
+        plot_bgcolor="#07111F",
         font=dict(
-            color="#b8c8da",
+            color="#CBD5E1",
         ),
-
-        title_font=dict(
-            size=16,
-            color="#f8fafc",
+        margin=dict(
+            l=10,
+            r=10,
+            t=45,
+            b=10,
         ),
-
         legend=dict(
             bgcolor="rgba(0,0,0,0)",
         ),
+    )
 
-        xaxis=dict(
-            gridcolor=
-                "rgba(148,163,184,0.08)",
+    if height is not None:
+
+        figure.update_layout(
+            height=height
+        )
+
+    return figure
+
+
+# ============================================================
+# DATA LOADERS
+# ============================================================
+
+@st.cache_data(ttl=120)
+def load_assets() -> pd.DataFrame:
+
+    return safe_query(
+        """
+        SELECT
+            a.asset_key,
+            a.asset_id,
+            a.asset_name,
+            a.asset_type,
+            a.operator_name,
+            a.is_active,
+
+            a.max_wind_kmh,
+            a.max_gust_kmh,
+            a.max_wave_height_m,
+            a.minimum_visibility_m,
+
+            l.location_name,
+            l.country,
+            l.latitude,
+            l.longitude
+
+        FROM dim_asset AS a
+
+        INNER JOIN dim_location AS l
+            ON l.location_key = a.location_key
+
+        WHERE
+            a.is_active = TRUE
+
+        ORDER BY
+            a.asset_name;
+        """
+    )
+
+
+@st.cache_data(ttl=120)
+def load_asset_map() -> pd.DataFrame:
+    """
+    Retrieve active assets together with the earliest future
+    operational risk in the latest forecast run.
+    """
+
+    return safe_query(
+        """
+        WITH latest_run AS
+        (
+            SELECT
+                MAX(forecast_reference_time)
+                    AS latest_reference_time
+            FROM fact_operational_weather_risk
         ),
 
-        yaxis=dict(
-            gridcolor=
-                "rgba(148,163,184,0.08)",
+        current_asset_risk AS
+        (
+            SELECT DISTINCT ON (r.asset_key)
+
+                r.asset_key,
+                r.forecast_reference_time,
+                r.forecast_valid_time,
+                r.overall_risk_level
+
+            FROM fact_operational_weather_risk AS r
+
+            INNER JOIN latest_run AS lr
+                ON r.forecast_reference_time =
+                   lr.latest_reference_time
+
+            WHERE
+                r.forecast_valid_time >= CURRENT_TIMESTAMP
+
+            ORDER BY
+                r.asset_key,
+                r.forecast_valid_time
+        )
+
+        SELECT
+
+            a.asset_key,
+            a.asset_id,
+            a.asset_name,
+            a.asset_type,
+            a.operator_name,
+
+            l.location_name,
+            l.country,
+            l.latitude,
+            l.longitude,
+
+            a.max_wind_kmh,
+            a.max_gust_kmh,
+            a.max_wave_height_m,
+            a.minimum_visibility_m,
+
+            r.forecast_reference_time,
+            r.forecast_valid_time,
+
+            COALESCE(
+                r.overall_risk_level,
+                'UNKNOWN'
+            ) AS overall_risk_level
+
+        FROM dim_asset AS a
+
+        INNER JOIN dim_location AS l
+            ON l.location_key = a.location_key
+
+        LEFT JOIN current_asset_risk AS r
+            ON r.asset_key = a.asset_key
+
+        WHERE
+            a.is_active = TRUE
+
+        ORDER BY
+            a.asset_name;
+        """
+    )
+
+
+# ============================================================
+# MAP
+# ============================================================
+
+def build_asset_map(
+    dataframe: pd.DataFrame,
+    selected_asset: str | None = None,
+):
+    """
+    Build the interactive operational offshore asset map.
+    """
+
+    if dataframe.empty:
+        return None
+
+    required_columns = {
+        "asset_name",
+        "latitude",
+        "longitude",
+    }
+
+    if not required_columns.issubset(
+        dataframe.columns
+    ):
+        return None
+
+    map_df = dataframe.dropna(
+        subset=[
+            "latitude",
+            "longitude",
+        ]
+    ).copy()
+
+    if map_df.empty:
+        return None
+
+    if "overall_risk_level" not in map_df.columns:
+
+        map_df[
+            "overall_risk_level"
+        ] = "UNKNOWN"
+
+    map_df[
+        "overall_risk_level"
+    ] = (
+        map_df[
+            "overall_risk_level"
+        ]
+        .fillna("UNKNOWN")
+        .astype(str)
+        .str.upper()
+    )
+
+    risk_colors = {
+        "GREEN": "#22C55E",
+        "AMBER": "#F59E0B",
+        "RED": "#EF4444",
+        "UNKNOWN": "#64748B",
+    }
+
+    # --------------------------------------------------------
+    # MAIN ASSET LAYER
+    # --------------------------------------------------------
+
+    figure = px.scatter_map(
+        map_df,
+        lat="latitude",
+        lon="longitude",
+        color="overall_risk_level",
+        color_discrete_map=risk_colors,
+        hover_name="asset_name",
+        hover_data={
+            "asset_type": True,
+            "operator_name": True,
+            "location_name": True,
+            "country": True,
+            "forecast_valid_time": True,
+            "max_wind_kmh": True,
+            "max_gust_kmh": True,
+            "max_wave_height_m": True,
+            "minimum_visibility_m": True,
+            "latitude": False,
+            "longitude": False,
+        },
+        zoom=6,
+        height=540,
+        map_style="open-street-map",
+    )
+
+    figure.update_traces(
+        marker=dict(
+            size=17,
+            opacity=0.95,
+        ),
+        selector=dict(
+            type="scattermap"
+        ),
+    )
+
+    # --------------------------------------------------------
+    # SELECTED ASSET HIGHLIGHT
+    # --------------------------------------------------------
+
+    if selected_asset:
+
+        selected_df = map_df[
+            map_df["asset_name"]
+            == selected_asset
+        ]
+
+        if not selected_df.empty:
+
+            figure.add_trace(
+                go.Scattermap(
+                    lat=selected_df[
+                        "latitude"
+                    ],
+                    lon=selected_df[
+                        "longitude"
+                    ],
+                    mode="markers",
+                    marker=dict(
+                        size=31,
+                        color="#38BDF8",
+                        opacity=0.35,
+                    ),
+                    hoverinfo="skip",
+                    name="Selected Asset",
+                    showlegend=False,
+                )
+            )
+
+    # --------------------------------------------------------
+    # MAP POSITION
+    # --------------------------------------------------------
+
+    if (
+        not map_df["latitude"].empty
+        and not map_df["longitude"].empty
+    ):
+
+        center_lat = (
+            map_df["latitude"]
+            .astype(float)
+            .mean()
+        )
+
+        center_lon = (
+            map_df["longitude"]
+            .astype(float)
+            .mean()
+        )
+
+        figure.update_layout(
+            map=dict(
+                center=dict(
+                    lat=center_lat,
+                    lon=center_lon,
+                ),
+                zoom=6,
+            )
+        )
+
+    figure.update_layout(
+        margin=dict(
+            l=0,
+            r=0,
+            t=10,
+            b=0,
+        ),
+        legend_title_text="Operational Risk",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.01,
+            xanchor="left",
+            x=0,
+            bgcolor="rgba(7,17,31,0.8)",
         ),
     )
 
     return figure
 
 
-def hero(
-    eyebrow: str,
-    title: str,
-    description: str,
-):
-    st.html(
-        f"""
-        <div class="hero">
-
-            <div class="hero-eyebrow">
-                {eyebrow}
-            </div>
-
-            <div class="hero-title">
-                {title}
-            </div>
-
-            <div class="hero-description">
-                {description}
-            </div>
-
-        </div>
-        """
-    )
-
-
-def section_header(
-    eyebrow: str,
-    title: str,
-):
-    st.html(
-        f"""
-        <div class="section-label">
-            {eyebrow}
-        </div>
-
-        <div class="section-title">
-            {title}
-        </div>
-        """
-    )
-
-
-def kpi_card(
-    label: str,
-    value: str,
-    note: str,
-    status: str | None = None,
-):
-    card_class = "kpi-card"
-    value_class = "kpi-value"
-
-    if status == "GREEN":
-        card_class += " status-green"
-        value_class += " green-text"
-
-    elif status == "AMBER":
-        card_class += " status-amber"
-        value_class += " amber-text"
-
-    elif status == "RED":
-        card_class += " status-red"
-        value_class += " red-text"
-
-    st.html(
-        f"""
-        <div class="{card_class}">
-
-            <div class="kpi-label">
-                {label}
-            </div>
-
-            <div class="{value_class}">
-                {value}
-            </div>
-
-            <div class="kpi-note">
-                {note}
-            </div>
-
-        </div>
-        """
-    )
-
-
-def csv_bytes(
-    dataframe: pd.DataFrame,
-) -> bytes:
-    return dataframe.to_csv(
-        index=False
-    ).encode("utf-8")
-
-
 # ============================================================
 # SIDEBAR
 # ============================================================
 
-with st.sidebar:
+assets_df = load_assets()
 
-    st.html(
-        """
-        <div style="
-            font-size:26px;
-            font-weight:760;
-            color:#f8fafc;
-            margin-bottom:4px;
-        ">
-            ◈ O&G Intelligence
-        </div>
+st.sidebar.markdown(
+    """
+    ## Oil & Gas Intelligence
 
-        <div style="
-            color:#6fa8df;
-            font-size:12px;
-            margin-bottom:28px;
-        ">
-            Operations Data Platform
-        </div>
-        """
-    )
+    Offshore Energy  
+    Data Engineering Platform
+    """
+)
 
-    st.caption(
-        "NAVIGATION"
-    )
+st.sidebar.divider()
 
-    page = st.radio(
-        "Navigation",
-        [
-            "Executive",
-            "Offshore Operations",
-            "Rig Market",
-            "Energy Intelligence",
-            "Data Quality",
-        ],
-        label_visibility="collapsed",
-    )
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "Executive",
+        "Offshore Operations",
+        "Rig Market",
+        "Energy Intelligence",
+        "Data Quality",
+    ],
+)
 
-    st.divider()
+selected_asset = None
 
-    st.markdown(
-        "#### Global Filters"
-    )
+if not assets_df.empty:
 
-    asset_names = []
-
-    if not assets.empty:
-        asset_names = (
-            assets["asset_name"]
-            .dropna()
-            .sort_values()
-            .unique()
-            .tolist()
-        )
-
-    selected_asset = st.selectbox(
-        "Asset",
-        ["All Assets"] + asset_names,
-    )
-
-    st.divider()
-
-    if not pipeline_run.empty:
-
-        sidebar_run = (
-            pipeline_run.iloc[0]
-        )
-
-        status = str(
-            sidebar_run["status"]
-        ).upper()
-
-        st.caption(
-            "LATEST PIPELINE RUN"
-        )
-
-        if status == "SUCCESS":
-
-            st.success(
-                "SUCCESS",
-                icon="✅",
-            )
-
-        elif status == "RUNNING":
-
-            st.warning(
-                "RUNNING",
-                icon="⏳",
-            )
-
-        else:
-
-            st.error(
-                "FAILED",
-                icon="❌",
-            )
-
-        st.caption(
-            str(
-                sidebar_run["started_at"]
-            )
-        )
-
-    st.divider()
-
-    st.caption(
-        "PostgreSQL analytical warehouse"
-    )
-
-
-# ============================================================
-# FILTER DATA
-# ============================================================
-
-weather_filtered = weather.copy()
-
-
-if (
-    selected_asset != "All Assets"
-    and not weather.empty
-):
-    weather_filtered = (
-        weather[
-            weather["asset_name"]
-            == selected_asset
+    asset_names = (
+        assets_df[
+            "asset_name"
         ]
-        .copy()
+        .dropna()
+        .astype(str)
+        .tolist()
     )
 
+    if asset_names:
 
-assets_filtered = assets.copy()
+        selected_asset = st.sidebar.selectbox(
+            "Monitored Asset",
+            asset_names,
+        )
 
+st.sidebar.divider()
 
-if (
-    selected_asset != "All Assets"
-    and not assets.empty
-):
-    assets_filtered = (
-        assets[
-            assets["asset_name"]
-            == selected_asset
-        ]
-        .copy()
-    )
-
-
-critical_filtered = critical.copy()
-
-
-if (
-    selected_asset != "All Assets"
-    and not critical.empty
-):
-    critical_filtered = (
-        critical[
-            critical["asset_name"]
-            == selected_asset
-        ]
-        .copy()
-    )
+st.sidebar.caption(
+    "Python • PostgreSQL • Docker • Streamlit"
+)
 
 
 # ============================================================
 # EXECUTIVE PAGE
 # ============================================================
 
-if page == "Executive":
+def render_executive_page():
 
-    hero(
-        "Executive Operations Center",
-        "Oil & Gas Operations Intelligence",
-        (
-            "Integrated offshore weather risk, "
-            "marine forecasting, rig-market activity, "
-            "energy data and warehouse intelligence."
-        ),
+    st.markdown(
+        '<div class="dashboard-title">'
+        'Executive Operations'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if executive.empty:
-        st.error(
-            "Executive view returned no data."
-        )
-        st.stop()
+    st.markdown(
+        '<div class="dashboard-subtitle">'
+        'Integrated offshore weather, drilling activity, '
+        'energy pricing and pipeline health.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-    kpi = executive.iloc[0]
-
-    st.html(
-        f"""
-        <div class="freshness-bar">
-
-            Forecast run:
-            <b>
-                {kpi['weather_forecast_reference_time']}
-            </b>
-
-            &nbsp;&nbsp; | &nbsp;&nbsp;
-
-            Rig data:
-            <b>
-                {kpi['rig_count_date']}
-            </b>
-
-            &nbsp;&nbsp; | &nbsp;&nbsp;
-
-            Energy data:
-            <b>
-                {kpi['energy_price_date']}
-            </b>
-
-        </div>
+    executive_df = safe_query(
+        """
+        SELECT *
+        FROM vw_executive_energy_operations
+        LIMIT 1;
         """
     )
 
-    section_header(
-        "Business Overview",
-        "Executive Snapshot",
+    quality_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_quality_summary
+        LIMIT 1;
+        """
     )
 
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-
-        kpi_card(
-            "Latest Rig Count",
-            f"{kpi['total_rig_count']:,.0f}",
-            (
-                f"{kpi['countries_reporting']:,.0f} "
-                "reporting countries"
-            ),
-        )
-
-    with c2:
-
-        kpi_card(
-            "Energy Price",
-            f"${kpi['average_energy_price_usd']:,.2f}",
-            "Latest warehouse observation",
-        )
-
-    with c3:
-
-        kpi_card(
-            "Monitored Assets",
-            f"{kpi['monitored_assets']:,.0f}",
-            "Active offshore assets",
-        )
-
-    with c4:
-
-        red_pct = float(
-            kpi["red_hours_percent"]
-        )
-
-        exposure_status = (
-            "RED"
-            if red_pct > 10
-            else (
-                "AMBER"
-                if red_pct > 0
-                else "GREEN"
-            )
-        )
-
-        kpi_card(
-            "Operational Exposure",
-            f"{red_pct:.1f}%",
-            "Forecast hours classified RED",
-            status=exposure_status,
-        )
-
-    st.write("")
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-
-        kpi_card(
-            "Green Hours",
-            f"{kpi['green_hours_percent']:.1f}%",
-            "Conditions within limits",
-            status="GREEN",
-        )
-
-    with c2:
-
-        kpi_card(
-            "Amber Hours",
-            f"{kpi['amber_hours_percent']:.1f}%",
-            "Enhanced monitoring",
-            status="AMBER",
-        )
-
-    with c3:
-
-        kpi_card(
-            "Red Hours",
-            f"{kpi['red_hours_percent']:.1f}%",
-            "Operational restrictions",
-            status="RED",
-        )
-
-    st.write("")
-
-    section_header(
-        "Operational Risk",
-        "Asset Availability",
+    pipeline_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_pipeline_run
+        LIMIT 1;
+        """
     )
 
-    if not assets_filtered.empty:
+    # --------------------------------------------------------
+    # EXECUTIVE KPIS
+    # --------------------------------------------------------
 
-        availability = (
-            assets_filtered.melt(
-                id_vars=[
-                    "asset_name"
-                ],
-                value_vars=[
-                    "green_hours",
-                    "amber_hours",
-                    "red_hours",
-                ],
-                var_name="risk",
-                value_name="hours",
-            )
+    if not executive_df.empty:
+
+        row = executive_df.iloc[0]
+
+        col1, col2, col3, col4, col5 = (
+            st.columns(5)
         )
 
-        availability["risk"] = (
-            availability["risk"]
-            .str.replace(
-                "_hours",
-                "",
-            )
-            .str.upper()
-        )
+        with col1:
 
-        fig = px.bar(
-            availability,
-
-            x="asset_name",
-            y="hours",
-            color="risk",
-
-            barmode="stack",
-
-            color_discrete_map={
-                "GREEN": "#22c55e",
-                "AMBER": "#f59e0b",
-                "RED": "#ef4444",
-            },
-
-            labels={
-                "asset_name": "",
-                "hours": "Forecast Hours",
-                "risk": "Risk Level",
-            },
-
-            title=(
-                "Forecast Operational Availability "
-                "by Asset"
-            ),
-        )
-
-        style_chart(
-            fig,
-            420,
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch",
-        )
-
-    left, right = st.columns(
-        [1.35, 1]
-    )
-
-    with left:
-
-        section_header(
-            "Market",
-            "Global Rig Activity",
-        )
-
-        if not rig.empty:
-
-            rig_fig = px.line(
-                rig,
-
-                x="date",
-                y="rig_count",
-                color="region",
-
-                labels={
-                    "date": "",
-                    "rig_count": "Rig Count",
-                    "region": "Region",
-                },
-
-                title=(
-                    "Monthly Rig Activity "
-                    "by Region"
+            st.metric(
+                "Latest Rig Count",
+                safe_integer(
+                    row.get(
+                        "total_rig_count"
+                    )
                 ),
             )
 
-            style_chart(
-                rig_fig,
-                390,
+        with col2:
+
+            st.metric(
+                "Countries Reporting",
+                safe_integer(
+                    row.get(
+                        "countries_reporting"
+                    )
+                ),
             )
 
-            st.plotly_chart(
-                rig_fig,
-                width="stretch",
+        with col3:
+
+            st.metric(
+                "Energy Price",
+                safe_number(
+                    row.get(
+                        "average_energy_price_usd"
+                    ),
+                    3,
+                ),
             )
 
-    with right:
+        with col4:
 
-        section_header(
-            "Forward Risk",
-            "Critical Events",
+            st.metric(
+                "Monitored Assets",
+                safe_integer(
+                    row.get(
+                        "monitored_assets"
+                    )
+                ),
+            )
+
+        with col5:
+
+            st.metric(
+                "RED Forecast Hours",
+                safe_integer(
+                    row.get(
+                        "red_hours"
+                    )
+                ),
+            )
+
+        # ----------------------------------------------------
+        # RISK DISTRIBUTION
+        # ----------------------------------------------------
+
+        st.divider()
+
+        risk_data = pd.DataFrame(
+            {
+                "Risk": [
+                    "GREEN",
+                    "AMBER",
+                    "RED",
+                    "UNKNOWN",
+                ],
+                "Hours": [
+                    row.get(
+                        "green_hours",
+                        0,
+                    ),
+                    row.get(
+                        "amber_hours",
+                        0,
+                    ),
+                    row.get(
+                        "red_hours",
+                        0,
+                    ),
+                    row.get(
+                        "unknown_hours",
+                        0,
+                    ),
+                ],
+            }
         )
 
-        if critical_filtered.empty:
+        risk_figure = px.bar(
+            risk_data,
+            x="Risk",
+            y="Hours",
+            color="Risk",
+            color_discrete_map={
+                "GREEN": "#22C55E",
+                "AMBER": "#F59E0B",
+                "RED": "#EF4444",
+                "UNKNOWN": "#64748B",
+            },
+            title=(
+                "Latest Offshore Forecast "
+                "Risk Distribution"
+            ),
+        )
 
-            st.success(
-                "No Amber or Red events "
-                "currently forecast."
+        configure_plot(
+            risk_figure,
+            380,
+        )
+
+        st.plotly_chart(
+            risk_figure,
+            use_container_width=True,
+        )
+
+    else:
+
+        st.info(
+            "Executive operational view is not available."
+        )
+
+    # --------------------------------------------------------
+    # PIPELINE HEALTH
+    # --------------------------------------------------------
+
+    st.markdown(
+        '<div class="section-title">'
+        'Pipeline Health'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    health1, health2, health3 = (
+        st.columns(3)
+    )
+
+    if not pipeline_df.empty:
+
+        pipeline_row = (
+            pipeline_df.iloc[0]
+        )
+
+        with health1:
+
+            st.metric(
+                "Pipeline Status",
+                str(
+                    pipeline_row.get(
+                        "status",
+                        "UNKNOWN",
+                    )
+                ),
             )
 
-        else:
+        with health2:
 
-            display = (
-                critical_filtered[
-                    [
-                        "asset_name",
-                        "forecast_valid_time",
-                        "overall_risk_level",
-                        "limiting_parameter",
-                    ]
-                ]
-                .copy()
+            duration = (
+                pipeline_row.get(
+                    "duration_seconds"
+                )
             )
 
-            st.dataframe(
-                display,
-                hide_index=True,
-                width="stretch",
-                height=330,
+            duration_text = (
+                safe_number(
+                    duration,
+                    1,
+                )
             )
+
+            if duration_text != "—":
+                duration_text += " s"
+
+            st.metric(
+                "Duration",
+                duration_text,
+            )
+
+    if not quality_df.empty:
+
+        quality_row = (
+            quality_df.iloc[0]
+        )
+
+        passed_col = (
+            first_existing_column(
+                quality_df,
+                [
+                    "passed_checks",
+                    "checks_passed",
+                    "passed",
+                ],
+            )
+        )
+
+        failed_col = (
+            first_existing_column(
+                quality_df,
+                [
+                    "failed_checks",
+                    "checks_failed",
+                    "failed",
+                ],
+            )
+        )
+
+        with health3:
+
+            passed = (
+                quality_row.get(
+                    passed_col
+                )
+                if passed_col
+                else None
+            )
+
+            failed = (
+                quality_row.get(
+                    failed_col
+                )
+                if failed_col
+                else None
+            )
+
+            if passed is not None:
+
+                st.metric(
+                    "Quality Checks",
+                    (
+                        safe_integer(
+                            passed
+                        )
+                        + " passed"
+                    ),
+                    delta=(
+                        (
+                            safe_integer(
+                                failed
+                            )
+                            + " failed"
+                        )
+                        if failed is not None
+                        else None
+                    ),
+                )
 
 
 # ============================================================
 # OFFSHORE OPERATIONS
 # ============================================================
 
-elif page == "Offshore Operations":
+def render_offshore_page():
 
-    hero(
-        "Marine Operations",
-        "Offshore Weather Operations",
-        (
-            "Atmospheric and marine forecast "
-            "intelligence designed for offshore "
-            "operational decision support."
-        ),
+    st.markdown(
+        '<div class="dashboard-title">'
+        'Offshore Operations'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if weather_filtered.empty:
+    st.markdown(
+        '<div class="dashboard-subtitle">'
+        'Geospatial asset monitoring, forecast conditions '
+        'and operational weather risk.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ========================================================
+    # MAP
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        'Monitored Offshore Assets'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    map_df = load_asset_map()
+
+    asset_map = build_asset_map(
+        map_df,
+        selected_asset,
+    )
+
+    if asset_map is not None:
+
+        st.plotly_chart(
+            asset_map,
+            use_container_width=True,
+        )
+
+        st.caption(
+            "Marker color represents the earliest future "
+            "operational risk from the latest forecast run. "
+            "The larger cyan marker identifies the selected "
+            "asset."
+        )
+
+    else:
+
+        st.info(
+            "No valid asset coordinates are available."
+        )
+
+    st.divider()
+
+    # ========================================================
+    # SELECTED ASSET
+    # ========================================================
+
+    if not selected_asset:
+
+        st.info(
+            "Select an offshore asset from the sidebar."
+        )
+
+        return
+
+    st.markdown(
+        (
+            '<div class="section-title">'
+            f'Selected Asset — {selected_asset}'
+            '</div>'
+        ),
+        unsafe_allow_html=True,
+    )
+
+    asset_info = assets_df[
+        assets_df[
+            "asset_name"
+        ]
+        == selected_asset
+    ]
+
+    if not asset_info.empty:
+
+        asset_row = (
+            asset_info.iloc[0]
+        )
+
+        a1, a2, a3, a4 = (
+            st.columns(4)
+        )
+
+        with a1:
+
+            st.metric(
+                "Asset Type",
+                str(
+                    asset_row.get(
+                        "asset_type",
+                        "—",
+                    )
+                ),
+            )
+
+        with a2:
+
+            value = safe_number(
+                asset_row.get(
+                    "max_wind_kmh"
+                ),
+                0,
+            )
+
+            st.metric(
+                "Max Wind",
+                (
+                    value + " km/h"
+                    if value != "—"
+                    else "—"
+                ),
+            )
+
+        with a3:
+
+            value = safe_number(
+                asset_row.get(
+                    "max_wave_height_m"
+                ),
+                1,
+            )
+
+            st.metric(
+                "Max Wave",
+                (
+                    value + " m"
+                    if value != "—"
+                    else "—"
+                ),
+            )
+
+        with a4:
+
+            value = safe_number(
+                asset_row.get(
+                    "minimum_visibility_m"
+                ),
+                0,
+            )
+
+            st.metric(
+                "Min Visibility",
+                (
+                    value + " m"
+                    if value != "—"
+                    else "—"
+                ),
+            )
+
+    # ========================================================
+    # FORECAST
+    # ========================================================
+
+    forecast_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_offshore_forecast
+        WHERE asset_name = :asset_name
+        ORDER BY forecast_valid_time;
+        """,
+        {
+            "asset_name": selected_asset,
+        },
+    )
+
+    if forecast_df.empty:
 
         st.warning(
-            "No weather records available."
+            "No forecast data available for this asset."
         )
 
-        st.stop()
+        return
 
-    forecast = weather_filtered.copy()
+    # --------------------------------------------------------
+    # TIMESTAMP
+    # --------------------------------------------------------
 
-    section_header(
-        "Forecast Risk",
-        "Operational Status",
-    )
+    if (
+        "forecast_valid_time"
+        in forecast_df.columns
+    ):
 
-    red_hours = int(
-        forecast[
-            "overall_risk_level"
-        ]
-        .eq("RED")
-        .sum()
-    )
-
-    amber_hours = int(
-        forecast[
-            "overall_risk_level"
-        ]
-        .eq("AMBER")
-        .sum()
-    )
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-
-        kpi_card(
-            "Maximum Gust",
-            (
-                f"{forecast['wind_gust_kmh'].max():.1f} "
-                "km/h"
-            ),
-            "Highest forecast gust",
+        forecast_df[
+            "forecast_valid_time"
+        ] = pd.to_datetime(
+            forecast_df[
+                "forecast_valid_time"
+            ],
+            errors="coerce",
         )
 
-    with c2:
-
-        kpi_card(
-            "Maximum Wave",
-            (
-                f"{forecast['wave_height_m'].max():.2f} m"
-            ),
-            "Significant wave height",
-        )
-
-    with c3:
-
-        kpi_card(
-            "Minimum Visibility",
-            (
-                f"{forecast['visibility_m'].min():,.0f} m"
-            ),
-            "Lowest forecast visibility",
-        )
-
-    with c4:
-
-        status = (
-            "RED"
-            if red_hours > 0
-            else (
-                "AMBER"
-                if amber_hours > 0
-                else "GREEN"
+        forecast_df = (
+            forecast_df
+            .dropna(
+                subset=[
+                    "forecast_valid_time"
+                ]
+            )
+            .sort_values(
+                "forecast_valid_time"
+            )
+            .reset_index(
+                drop=True
             )
         )
 
-        kpi_card(
-            "Operational Exposure",
-            status,
-            (
-                f"{red_hours} RED / "
-                f"{amber_hours} AMBER hours"
-            ),
-            status=status,
-        )
+    # --------------------------------------------------------
+    # CURRENT/FIRST FUTURE FORECAST
+    # --------------------------------------------------------
 
-    st.write("")
-
-    (
-        tab_wind,
-        tab_wave,
-        tab_visibility,
-        tab_risk,
-    ) = st.tabs(
-        [
-            "Wind",
-            "Waves",
-            "Visibility",
-            "Risk Timeline",
-        ]
+    current_row = (
+        forecast_df.iloc[0]
     )
 
-    with tab_wind:
+    if (
+        "forecast_valid_time"
+        in forecast_df.columns
+    ):
 
-        fig = px.line(
-            forecast,
+        future_df = forecast_df[
+            forecast_df[
+                "forecast_valid_time"
+            ]
+            >= pd.Timestamp.now()
+        ]
 
-            x="forecast_valid_time",
+        if not future_df.empty:
 
-            y=[
-                "wind_speed_kmh",
-                "wind_gust_kmh",
-            ],
+            current_row = (
+                future_df.iloc[0]
+            )
 
-            labels={
-                "forecast_valid_time": "",
-                "value": "km/h",
-                "variable": "",
-            },
+    # --------------------------------------------------------
+    # KPIS
+    # --------------------------------------------------------
 
-            title=(
-                "Wind Speed & Gust Forecast"
-            ),
-        )
+    k1, k2, k3, k4, k5 = (
+        st.columns(5)
+    )
 
-        style_chart(
-            fig,
-            450,
-        )
+    with k1:
 
-        st.plotly_chart(
-            fig,
-            width="stretch",
-        )
-
-    with tab_wave:
-
-        fig = px.line(
-            forecast,
-
-            x="forecast_valid_time",
-
-            y=[
-                "wave_height_m",
-                "swell_wave_height_m",
-            ],
-
-            labels={
-                "forecast_valid_time": "",
-                "value": "Height (m)",
-                "variable": "",
-            },
-
-            title=(
-                "Wave & Swell Forecast"
-            ),
-        )
-
-        style_chart(
-            fig,
-            450,
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch",
-        )
-
-    with tab_visibility:
-
-        fig = px.line(
-            forecast,
-
-            x="forecast_valid_time",
-            y="visibility_m",
-            color="asset_name",
-
-            labels={
-                "forecast_valid_time": "",
-                "visibility_m": "Visibility (m)",
-                "asset_name": "Asset",
-            },
-
-            title="Forecast Visibility",
-        )
-
-        style_chart(
-            fig,
-            450,
-        )
-
-        st.plotly_chart(
-            fig,
-            width="stretch",
-        )
-
-    with tab_risk:
-
-        risk_counts = (
-            forecast
-            .groupby(
-                [
-                    "forecast_valid_time",
+        st.metric(
+            "Current Risk",
+            str(
+                current_row.get(
                     "overall_risk_level",
-                ],
-                as_index=False,
-            )
-            .size()
-        )
-
-        fig = px.scatter(
-            risk_counts,
-
-            x="forecast_valid_time",
-            y="overall_risk_level",
-
-            size="size",
-            color="overall_risk_level",
-
-            color_discrete_map={
-                "GREEN": "#22c55e",
-                "AMBER": "#f59e0b",
-                "RED": "#ef4444",
-                "UNKNOWN": "#94a3b8",
-            },
-
-            labels={
-                "forecast_valid_time": "",
-                "overall_risk_level": "Risk",
-                "size": "Assets",
-            },
-
-            title=(
-                "Operational Risk Timeline"
+                    "UNKNOWN",
+                )
             ),
         )
 
-        style_chart(
-            fig,
-            420,
+    with k2:
+
+        value = safe_number(
+            current_row.get(
+                "wind_speed_kmh"
+            ),
+            1,
+        )
+
+        st.metric(
+            "Wind",
+            (
+                value + " km/h"
+                if value != "—"
+                else "—"
+            ),
+        )
+
+    with k3:
+
+        value = safe_number(
+            current_row.get(
+                "wind_gust_kmh"
+            ),
+            1,
+        )
+
+        st.metric(
+            "Gust",
+            (
+                value + " km/h"
+                if value != "—"
+                else "—"
+            ),
+        )
+
+    with k4:
+
+        value = safe_number(
+            current_row.get(
+                "wave_height_m"
+            ),
+            2,
+        )
+
+        st.metric(
+            "Wave",
+            (
+                value + " m"
+                if value != "—"
+                else "—"
+            ),
+        )
+
+    with k5:
+
+        value = safe_number(
+            current_row.get(
+                "visibility_m"
+            ),
+            0,
+        )
+
+        st.metric(
+            "Visibility",
+            (
+                value + " m"
+                if value != "—"
+                else "—"
+            ),
+        )
+
+    st.divider()
+
+    # ========================================================
+    # WIND + GUST
+    # ========================================================
+
+    wind_columns = []
+
+    if (
+        "wind_speed_kmh"
+        in forecast_df.columns
+    ):
+        wind_columns.append(
+            "wind_speed_kmh"
+        )
+
+    if (
+        "wind_gust_kmh"
+        in forecast_df.columns
+    ):
+        wind_columns.append(
+            "wind_gust_kmh"
+        )
+
+    if (
+        wind_columns
+        and "forecast_valid_time"
+        in forecast_df.columns
+    ):
+
+        wind_long = (
+            forecast_df.melt(
+                id_vars=[
+                    "forecast_valid_time"
+                ],
+                value_vars=wind_columns,
+                var_name="Variable",
+                value_name="km/h",
+            )
+        )
+
+        wind_figure = px.line(
+            wind_long,
+            x="forecast_valid_time",
+            y="km/h",
+            color="Variable",
+            title="Wind & Gust Forecast",
+        )
+
+        configure_plot(
+            wind_figure,
+            400,
+        )
+
+        wind_figure.update_layout(
+            hovermode="x unified",
         )
 
         st.plotly_chart(
-            fig,
-            width="stretch",
+            wind_figure,
+            use_container_width=True,
         )
 
-    section_header(
-        "Export",
-        "Operational Forecast Dataset",
+    # ========================================================
+    # WAVE + VISIBILITY
+    # ========================================================
+
+    chart1, chart2 = (
+        st.columns(2)
     )
 
-    st.download_button(
-        "Download forecast CSV",
-        data=csv_bytes(
-            forecast
-        ),
-        file_name=(
-            "offshore_weather_forecast.csv"
-        ),
-        mime="text/csv",
+    with chart1:
+
+        if (
+            "wave_height_m"
+            in forecast_df.columns
+            and "forecast_valid_time"
+            in forecast_df.columns
+        ):
+
+            wave_figure = px.line(
+                forecast_df,
+                x="forecast_valid_time",
+                y="wave_height_m",
+                title=(
+                    "Significant Wave Height"
+                ),
+                labels={
+                    "wave_height_m":
+                        "Wave Height (m)",
+                },
+            )
+
+            configure_plot(
+                wave_figure,
+                380,
+            )
+
+            st.plotly_chart(
+                wave_figure,
+                use_container_width=True,
+            )
+
+    with chart2:
+
+        if (
+            "visibility_m"
+            in forecast_df.columns
+            and "forecast_valid_time"
+            in forecast_df.columns
+        ):
+
+            visibility_figure = px.line(
+                forecast_df,
+                x="forecast_valid_time",
+                y="visibility_m",
+                title="Visibility Forecast",
+                labels={
+                    "visibility_m":
+                        "Visibility (m)",
+                },
+            )
+
+            configure_plot(
+                visibility_figure,
+                380,
+            )
+
+            st.plotly_chart(
+                visibility_figure,
+                use_container_width=True,
+            )
+
+    # ========================================================
+    # RISK TIMELINE
+    # ========================================================
+
+    if (
+        "overall_risk_level"
+        in forecast_df.columns
+        and "forecast_valid_time"
+        in forecast_df.columns
+    ):
+
+        st.markdown(
+            '<div class="section-title">'
+            'Operational Risk Timeline'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        risk_numeric = {
+            "UNKNOWN": 0,
+            "GREEN": 1,
+            "AMBER": 2,
+            "RED": 3,
+        }
+
+        risk_df = forecast_df[
+            [
+                "forecast_valid_time",
+                "overall_risk_level",
+            ]
+        ].copy()
+
+        risk_df[
+            "overall_risk_level"
+        ] = (
+            risk_df[
+                "overall_risk_level"
+            ]
+            .fillna("UNKNOWN")
+            .astype(str)
+            .str.upper()
+        )
+
+        risk_df[
+            "risk_score"
+        ] = (
+            risk_df[
+                "overall_risk_level"
+            ]
+            .map(
+                risk_numeric
+            )
+            .fillna(0)
+        )
+
+        risk_figure = px.scatter(
+            risk_df,
+            x="forecast_valid_time",
+            y="risk_score",
+            color="overall_risk_level",
+            color_discrete_map={
+                "GREEN": "#22C55E",
+                "AMBER": "#F59E0B",
+                "RED": "#EF4444",
+                "UNKNOWN": "#64748B",
+            },
+            labels={
+                "risk_score":
+                    "Operational Risk",
+                "forecast_valid_time":
+                    "Forecast Time",
+            },
+        )
+
+        risk_figure.update_traces(
+            marker=dict(
+                size=11
+            )
+        )
+
+        risk_figure.update_yaxes(
+            tickmode="array",
+            tickvals=[
+                0,
+                1,
+                2,
+                3,
+            ],
+            ticktext=[
+                "UNKNOWN",
+                "GREEN",
+                "AMBER",
+                "RED",
+            ],
+        )
+
+        configure_plot(
+            risk_figure,
+            360,
+        )
+
+        st.plotly_chart(
+            risk_figure,
+            use_container_width=True,
+        )
+
+    # ========================================================
+    # NEXT CRITICAL EVENT
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        'Next Critical Weather Event'
+        '</div>',
+        unsafe_allow_html=True,
     )
+
+    critical_df = safe_query(
+        """
+        SELECT *
+        FROM vw_next_weather_critical_event
+        WHERE asset_name = :asset_name
+        LIMIT 1;
+        """,
+        {
+            "asset_name": selected_asset,
+        },
+    )
+
+    if not critical_df.empty:
+
+        critical_row = (
+            critical_df.iloc[0]
+        )
+
+        risk_level = str(
+            critical_row.get(
+                "overall_risk_level",
+                "UNKNOWN",
+            )
+        ).upper()
+
+        valid_time = (
+            critical_row.get(
+                "forecast_valid_time",
+                critical_row.get(
+                    "critical_time",
+                    "—",
+                ),
+            )
+        )
+
+        if risk_level == "RED":
+
+            st.markdown(
+                f"""
+                <div class="status-danger">
+                    <b>RED operational risk expected</b><br>
+                    Forecast time: {valid_time}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        else:
+
+            st.markdown(
+                f"""
+                <div class="status-warning">
+                    <b>{risk_level} operational risk expected</b><br>
+                    Forecast time: {valid_time}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    else:
+
+        st.markdown(
+            """
+            <div class="status-success">
+                <b>No upcoming AMBER or RED event detected
+                in the available forecast window.</b>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 # ============================================================
 # RIG MARKET
 # ============================================================
 
-elif page == "Rig Market":
+def render_rig_page():
 
-    hero(
-        "Market Intelligence",
-        "Global Rig Market",
-        (
-            "Baker Hughes drilling activity "
-            "across regions and historical "
-            "reporting periods."
-        ),
+    st.markdown(
+        '<div class="dashboard-title">'
+        'Rig Market Intelligence'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if rig.empty:
+    st.markdown(
+        '<div class="dashboard-subtitle">'
+        'Historical drilling activity from the '
+        'Baker Hughes Worldwide Rig Count.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-        st.warning(
-            "No rig data available."
+    # ========================================================
+    # LOAD DATA
+    # ========================================================
+
+    latest_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_rig_count;
+        """
+    )
+
+    region_df = safe_query(
+        """
+        SELECT *
+        FROM vw_rig_count_region_monthly;
+        """
+    )
+
+    # ========================================================
+    # KPI CARDS
+    # ========================================================
+
+    if not latest_df.empty:
+
+        latest_count_col = (
+            first_existing_column(
+                latest_df,
+                [
+                    "rig_count",
+                    "total_rig_count",
+                ],
+            )
         )
 
-        st.stop()
+        country_col = (
+            first_existing_column(
+                latest_df,
+                [
+                    "country",
+                    "country_name",
+                ],
+            )
+        )
 
-    rig = rig.copy()
+        r1, r2 = (
+            st.columns(2)
+        )
 
-    rig["date"] = pd.to_datetime(
-        rig["date"],
-        errors="coerce",
+        with r1:
+
+            if latest_count_col:
+
+                st.metric(
+                    "Latest Rig Count",
+                    safe_integer(
+                        latest_df[
+                            latest_count_col
+                        ].sum()
+                    ),
+                )
+
+            else:
+
+                st.metric(
+                    "Latest Rig Count",
+                    "—",
+                )
+
+        with r2:
+
+            if country_col:
+
+                st.metric(
+                    "Countries Reporting",
+                    latest_df[
+                        country_col
+                    ].nunique(),
+                )
+
+            else:
+
+                st.metric(
+                    "Countries Reporting",
+                    "—",
+                )
+
+    if region_df.empty:
+
+        st.warning(
+            "Rig market data is unavailable."
+        )
+
+        return
+
+    # ========================================================
+    # DETECT COLUMNS
+    # ========================================================
+
+    date_col = (
+        first_existing_column(
+            region_df,
+            [
+                "observation_date",
+                "date",
+            ],
+        )
     )
+
+    region_col = (
+        first_existing_column(
+            region_df,
+            [
+                "region",
+                "region_name",
+            ],
+        )
+    )
+
+    rig_col = (
+        first_existing_column(
+            region_df,
+            [
+                "rig_count",
+                "total_rig_count",
+            ],
+        )
+    )
+
+    # ========================================================
+    # NORMALIZE
+    # ========================================================
+
+    if date_col:
+
+        region_df[
+            date_col
+        ] = pd.to_datetime(
+            region_df[
+                date_col
+            ],
+            errors="coerce",
+        )
+
+        region_df = (
+            region_df
+            .dropna(
+                subset=[
+                    date_col
+                ]
+            )
+            .sort_values(
+                date_col
+            )
+            .reset_index(
+                drop=True
+            )
+        )
+
+    missing_columns = []
+
+    if date_col is None:
+        missing_columns.append(
+            "date"
+        )
+
+    if region_col is None:
+        missing_columns.append(
+            "region"
+        )
+
+    if rig_col is None:
+        missing_columns.append(
+            "rig count"
+        )
+
+    if missing_columns:
+
+        st.warning(
+            "Rig market view does not contain "
+            "the required analytical columns: "
+            + ", ".join(
+                missing_columns
+            )
+        )
+
+        with st.expander(
+            "Inspect Rig View Columns"
+        ):
+
+            st.write(
+                region_df.columns.tolist()
+            )
+
+            st.dataframe(
+                region_df.head(20),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        return
+
+    # ========================================================
+    # REGIONAL HISTORY
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        'Regional Drilling Activity'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    rig_figure = px.line(
+        region_df,
+        x=date_col,
+        y=rig_col,
+        color=region_col,
+        title="Worldwide Rig Count by Region",
+        labels={
+            date_col:
+                "Date",
+            rig_col:
+                "Rig Count",
+            region_col:
+                "Region",
+        },
+    )
+
+    configure_plot(
+        rig_figure,
+        520,
+    )
+
+    rig_figure.update_layout(
+        hovermode="x unified",
+    )
+
+    rig_figure.update_xaxes(
+        showgrid=False,
+    )
+
+    rig_figure.update_yaxes(
+        rangemode="tozero",
+    )
+
+    st.plotly_chart(
+        rig_figure,
+        use_container_width=True,
+    )
+
+    # ========================================================
+    # LATEST REGIONAL SNAPSHOT
+    # ========================================================
 
     latest_date = (
-        rig["date"].max()
+        region_df[
+            date_col
+        ].max()
     )
 
-    latest_rig = (
-        rig[
-            rig["date"]
+    latest_region_df = (
+        region_df[
+            region_df[
+                date_col
+            ]
             == latest_date
         ]
         .copy()
     )
 
-    c1, c2, c3 = st.columns(3)
+    if not latest_region_df.empty:
 
-    with c1:
-
-        kpi_card(
-            "Reporting Month",
-            latest_date.strftime(
-                "%b %Y"
-            ),
-            "Latest reporting period",
+        latest_region_df = (
+            latest_region_df
+            .sort_values(
+                rig_col,
+                ascending=False,
+            )
         )
 
-    with c2:
-
-        kpi_card(
-            "Latest Rig Activity",
-            (
-                f"{latest_rig['rig_count'].sum():,.0f}"
-            ),
-            "Latest regional observations",
+        st.markdown(
+            '<div class="section-title">'
+            'Latest Regional Snapshot'
+            '</div>',
+            unsafe_allow_html=True,
         )
 
-    with c3:
-
-        kpi_card(
-            "Regions",
-            (
-                f"{latest_rig['region'].nunique()}"
+        regional_bar = px.bar(
+            latest_region_df,
+            x=region_col,
+            y=rig_col,
+            title=(
+                "Rig Count by Region — "
+                f"{latest_date:%Y-%m}"
             ),
-            "Regions represented",
+            labels={
+                region_col:
+                    "Region",
+                rig_col:
+                    "Rig Count",
+            },
         )
 
-    fig = px.line(
-        rig,
+        configure_plot(
+            regional_bar,
+            420,
+        )
 
-        x="date",
-        y="rig_count",
-        color="region",
+        regional_bar.update_xaxes(
+            categoryorder=(
+                "total descending"
+            )
+        )
 
-        title=(
-            "Rig Count Evolution by Region"
-        ),
+        regional_bar.update_yaxes(
+            rangemode="tozero",
+        )
 
-        labels={
-            "date": "",
-            "rig_count": "Rig Count",
-            "region": "Region",
-        },
-    )
+        st.plotly_chart(
+            regional_bar,
+            use_container_width=True,
+        )
 
-    style_chart(
-        fig,
-        480,
-    )
+    # ========================================================
+    # TABLE
+    # ========================================================
 
-    st.plotly_chart(
-        fig,
-        width="stretch",
-    )
+    with st.expander(
+        "View Rig Market Data"
+    ):
 
-    region_latest = (
-        latest_rig
-        .groupby(
-            "region",
-            as_index=False,
-        )["rig_count"]
-        .sum()
-    )
+        display_df = (
+            region_df.copy()
+        )
 
-    fig = px.bar(
-        region_latest,
+        display_df[
+            date_col
+        ] = (
+            display_df[
+                date_col
+            ]
+            .dt.strftime(
+                "%Y-%m-%d"
+            )
+        )
 
-        x="region",
-        y="rig_count",
-
-        title=(
-            "Latest Rig Activity by Region"
-        ),
-
-        labels={
-            "region": "",
-            "rig_count": "Rig Count",
-        },
-    )
-
-    style_chart(
-        fig,
-        410,
-    )
-
-    st.plotly_chart(
-        fig,
-        width="stretch",
-    )
-
-    st.download_button(
-        "Download rig market CSV",
-        data=csv_bytes(
-            rig
-        ),
-        file_name="rig_market.csv",
-        mime="text/csv",
-    )
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 # ============================================================
 # ENERGY INTELLIGENCE
 # ============================================================
 
-elif page == "Energy Intelligence":
+def render_energy_page():
 
-    hero(
-        "Energy Market",
-        "Energy Price Intelligence",
-        (
-            "EIA energy-price observations "
-            "integrated into the analytical "
-            "PostgreSQL warehouse."
-        ),
+    st.markdown(
+        '<div class="dashboard-title">'
+        'Energy Intelligence'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if not executive.empty:
+    st.markdown(
+        '<div class="dashboard-subtitle">'
+        'EIA energy-price analytics integrated into '
+        'the operational warehouse.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-        kpi = executive.iloc[0]
+    st.info(
+        "The current EIA dataset represents a refined "
+        "petroleum product price series. It is presented "
+        "as Energy Price rather than WTI crude."
+    )
 
-        c1, c2, c3 = st.columns(3)
+    # ========================================================
+    # LOAD
+    # ========================================================
 
-        with c1:
+    energy_df = safe_query(
+        """
+        SELECT *
+        FROM vw_daily_oil_price;
+        """
+    )
 
-            kpi_card(
-                "Average Price",
-                (
-                    f"${kpi['average_energy_price_usd']:,.2f}"
-                ),
-                "Latest warehouse observation",
-            )
+    if energy_df.empty:
 
-        with c2:
-
-            kpi_card(
-                "Price Date",
-                str(
-                    kpi["energy_price_date"]
-                ),
-                "Latest reporting date",
-            )
-
-        with c3:
-
-            kpi_card(
-                "Observations",
-                (
-                    f"{kpi['energy_price_observations']:,.0f}"
-                ),
-                "Latest reporting period",
-            )
-
-    st.write("")
-
-    if not energy.empty:
-
-        price_column = None
-
-        for candidate in (
-            "average_price_usd",
-            "price_usd",
-            "price",
-        ):
-            if candidate in energy.columns:
-                price_column = candidate
-                break
-
-        if (
-            price_column
-            and "date" in energy.columns
-        ):
-
-            fig = px.line(
-                energy,
-
-                x="date",
-                y=price_column,
-
-                color=(
-                    "product"
-                    if "product"
-                    in energy.columns
-                    else None
-                ),
-
-                title=(
-                    "Historical Energy Price"
-                ),
-
-                labels={
-                    "date": "",
-                    price_column: "USD",
-                    "product": "Product",
-                },
-            )
-
-            style_chart(
-                fig,
-                480,
-            )
-
-            st.plotly_chart(
-                fig,
-                width="stretch",
-            )
-
-        st.info(
-            "The current EIA dataset represents "
-            "a refined-product price series. "
-            "It is intentionally presented as "
-            "Energy Price Intelligence rather "
-            "than WTI crude oil."
+        st.warning(
+            "Energy-price data is unavailable."
         )
 
-        st.download_button(
-            "Download energy price CSV",
-            data=csv_bytes(
-                energy
+        return
+
+    # ========================================================
+    # DETECT COLUMNS
+    # ========================================================
+
+    date_col = (
+        first_existing_column(
+            energy_df,
+            [
+                "price_date",
+                "date",
+                "timestamp",
+            ],
+        )
+    )
+
+    price_col = (
+        first_existing_column(
+            energy_df,
+            [
+                "average_price_usd",
+                "price_usd",
+                "price",
+            ],
+        )
+    )
+
+    product_col = (
+        first_existing_column(
+            energy_df,
+            [
+                "product_name",
+                "product",
+                "product_code",
+            ],
+        )
+    )
+
+    unit_col = (
+        first_existing_column(
+            energy_df,
+            [
+                "unit",
+                "default_unit",
+            ],
+        )
+    )
+
+    # ========================================================
+    # NORMALIZE DATE
+    # ========================================================
+
+    if date_col:
+
+        energy_df[
+            date_col
+        ] = pd.to_datetime(
+            energy_df[
+                date_col
+            ],
+            errors="coerce",
+        )
+
+        energy_df = (
+            energy_df
+            .dropna(
+                subset=[
+                    date_col
+                ]
+            )
+            .sort_values(
+                date_col
+            )
+            .reset_index(
+                drop=True
+            )
+        )
+
+    # ========================================================
+    # VALIDATE
+    # ========================================================
+
+    if date_col is None or price_col is None:
+
+        st.warning(
+            "Energy-price view does not contain "
+            "the expected analytical columns."
+        )
+
+        with st.expander(
+            "Inspect Energy View Columns"
+        ):
+
+            st.write(
+                energy_df.columns.tolist()
+            )
+
+            st.dataframe(
+                energy_df.head(20),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        return
+
+    # ========================================================
+    # KPIS
+    # ========================================================
+
+    e1, e2, e3, e4 = (
+        st.columns(4)
+    )
+
+    latest_row = (
+        energy_df.iloc[-1]
+    )
+
+    with e1:
+
+        latest_value = safe_number(
+            latest_row.get(
+                price_col
             ),
-            file_name=(
-                "energy_prices.csv"
+            3,
+        )
+
+        if (
+            unit_col
+            and unit_col
+            in energy_df.columns
+        ):
+
+            unit = str(
+                latest_row.get(
+                    unit_col,
+                    "",
+                )
+            )
+
+            if (
+                unit
+                and unit.lower()
+                != "nan"
+            ):
+                latest_value += (
+                    f" {unit}"
+                )
+
+        st.metric(
+            "Latest Price",
+            latest_value,
+        )
+
+    with e2:
+
+        st.metric(
+            "Average Price",
+            safe_number(
+                energy_df[
+                    price_col
+                ].mean(),
+                3,
             ),
-            mime="text/csv",
+        )
+
+    with e3:
+
+        st.metric(
+            "Minimum",
+            safe_number(
+                energy_df[
+                    price_col
+                ].min(),
+                3,
+            ),
+        )
+
+    with e4:
+
+        st.metric(
+            "Maximum",
+            safe_number(
+                energy_df[
+                    price_col
+                ].max(),
+                3,
+            ),
+        )
+
+    # ========================================================
+    # PRICE HISTORY
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        'Energy Price History'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    line_kwargs = {}
+
+    if product_col:
+
+        line_kwargs[
+            "color"
+        ] = product_col
+
+    energy_figure = px.line(
+        energy_df,
+        x=date_col,
+        y=price_col,
+        title="EIA Energy Price History",
+        labels={
+            date_col:
+                "Date",
+            price_col:
+                "Price",
+        },
+        **line_kwargs,
+    )
+
+    configure_plot(
+        energy_figure,
+        500,
+    )
+
+    energy_figure.update_layout(
+        hovermode="x unified",
+    )
+
+    st.plotly_chart(
+        energy_figure,
+        use_container_width=True,
+    )
+
+    # ========================================================
+    # DATASET
+    # ========================================================
+
+    with st.expander(
+        "View Energy Dataset"
+    ):
+
+        display_energy = (
+            energy_df.copy()
+        )
+
+        display_energy[
+            date_col
+        ] = (
+            display_energy[
+                date_col
+            ]
+            .dt.strftime(
+                "%Y-%m-%d"
+            )
+        )
+
+        st.dataframe(
+            display_energy,
+            use_container_width=True,
+            hide_index=True,
         )
 
 
@@ -1765,435 +2300,318 @@ elif page == "Energy Intelligence":
 # DATA QUALITY
 # ============================================================
 
-elif page == "Data Quality":
+def render_quality_page():
 
-    hero(
-        "Platform Reliability",
-        "Data Quality & Pipeline Health",
-        (
-            "Live pipeline observability, "
-            "validation results and warehouse "
-            "health stored in PostgreSQL."
-        ),
+    st.markdown(
+        '<div class="dashboard-title">'
+        'Data Quality & Observability'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    section_header(
-        "Orchestration",
-        "Latest Pipeline Execution",
+    st.markdown(
+        '<div class="dashboard-subtitle">'
+        'Pipeline execution health, persisted quality checks '
+        'and warehouse monitoring.'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if pipeline_run.empty:
+    pipeline_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_pipeline_run
+        LIMIT 1;
+        """
+    )
 
-        st.warning(
-            "No pipeline executions found."
+    quality_summary_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_quality_summary
+        LIMIT 1;
+        """
+    )
+
+    quality_checks_df = safe_query(
+        """
+        SELECT *
+        FROM vw_latest_quality_checks;
+        """
+    )
+
+    history_df = safe_query(
+        """
+        SELECT *
+        FROM vw_pipeline_run_history;
+        """
+    )
+
+    # ========================================================
+    # KPI ROW
+    # ========================================================
+
+    q1, q2, q3, q4 = (
+        st.columns(4)
+    )
+
+    if not pipeline_df.empty:
+
+        row = (
+            pipeline_df.iloc[0]
         )
 
-    else:
+        with q1:
 
-        latest_run = (
-            pipeline_run.iloc[0]
-        )
-
-        status = str(
-            latest_run["status"]
-        ).upper()
-
-        status_level = {
-            "SUCCESS": "GREEN",
-            "RUNNING": "AMBER",
-            "FAILED": "RED",
-        }.get(
-            status,
-            "RED",
-        )
-
-        c1, c2, c3, c4 = st.columns(4)
-
-        with c1:
-
-            kpi_card(
-                "Pipeline Status",
-                status,
-                (
-                    f"Run #"
-                    f"{latest_run['pipeline_run_key']}"
+            st.metric(
+                "Latest Pipeline",
+                str(
+                    row.get(
+                        "status",
+                        "UNKNOWN",
+                    )
                 ),
-                status=status_level,
             )
 
-        with c2:
+        with q4:
 
-            duration = (
-                latest_run[
+            duration_value = safe_number(
+                row.get(
                     "duration_seconds"
-                ]
-            )
-
-            duration_text = (
-                "Running"
-                if pd.isna(duration)
-                else f"{float(duration):.1f} s"
-            )
-
-            kpi_card(
-                "Duration",
-                duration_text,
-                "Total execution time",
-            )
-
-        with c3:
-
-            kpi_card(
-                "Started",
-                str(
-                    latest_run[
-                        "started_at"
-                    ]
-                )[:19],
-                "Pipeline start time",
-            )
-
-        with c4:
-
-            finished = (
-                latest_run[
-                    "finished_at"
-                ]
-            )
-
-            kpi_card(
-                "Finished",
-                (
-                    str(finished)[:19]
-                    if pd.notna(finished)
-                    else "Running"
                 ),
-                "Pipeline completion time",
+                1,
             )
 
-        if (
-            status == "FAILED"
-            and pd.notna(
-                latest_run[
-                    "error_message"
-                ]
+            st.metric(
+                "Duration",
+                (
+                    duration_value + " s"
+                    if duration_value
+                    != "—"
+                    else "—"
+                ),
             )
-        ):
-            st.error(
-                str(
-                    latest_run[
-                        "error_message"
-                    ]
+
+    if not quality_summary_df.empty:
+
+        row = (
+            quality_summary_df.iloc[0]
+        )
+
+        passed_col = (
+            first_existing_column(
+                quality_summary_df,
+                [
+                    "passed_checks",
+                    "checks_passed",
+                    "passed",
+                ],
+            )
+        )
+
+        failed_col = (
+            first_existing_column(
+                quality_summary_df,
+                [
+                    "failed_checks",
+                    "checks_failed",
+                    "failed",
+                ],
+            )
+        )
+
+        with q2:
+
+            if passed_col:
+
+                st.metric(
+                    "Checks Passed",
+                    safe_integer(
+                        row.get(
+                            passed_col
+                        )
+                    ),
                 )
-            )
 
-    st.write("")
+        with q3:
 
-    section_header(
-        "Validation",
-        "Warehouse Quality",
+            if failed_col:
+
+                st.metric(
+                    "Checks Failed",
+                    safe_integer(
+                        row.get(
+                            failed_col
+                        )
+                    ),
+                )
+
+    st.divider()
+
+    # ========================================================
+    # CHECK TABLE
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-title">'
+        'Latest Warehouse Quality Checks'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if quality_summary.empty:
+    if not quality_checks_df.empty:
 
-        st.warning(
-            "No quality results found."
+        st.dataframe(
+            quality_checks_df,
+            use_container_width=True,
+            hide_index=True,
         )
 
     else:
 
-        q = quality_summary.iloc[0]
-
-        total_checks = int(
-            q["total_checks"]
+        st.info(
+            "No persisted quality-check results available."
         )
 
-        passed_checks = int(
-            q["passed_checks"]
-        )
+    # ========================================================
+    # PIPELINE HISTORY
+    # ========================================================
 
-        failed_checks = int(
-            q["failed_checks"]
-        )
-
-        pass_rate = float(
-            q["pass_rate_percent"]
-            or 0
-        )
-
-        quality_status = (
-            "GREEN"
-            if failed_checks == 0
-            else (
-                "AMBER"
-                if pass_rate >= 90
-                else "RED"
-            )
-        )
-
-        c1, c2, c3, c4 = st.columns(4)
-
-        with c1:
-
-            kpi_card(
-                "Quality Checks",
-                (
-                    f"{passed_checks} / "
-                    f"{total_checks}"
-                ),
-                "Checks passed",
-                status=quality_status,
-            )
-
-        with c2:
-
-            kpi_card(
-                "Pass Rate",
-                f"{pass_rate:.1f}%",
-                "Latest validation run",
-                status=quality_status,
-            )
-
-        with c3:
-
-            kpi_card(
-                "Failed Checks",
-                str(
-                    failed_checks
-                ),
-                "Validation failures",
-                status=(
-                    "GREEN"
-                    if failed_checks == 0
-                    else "RED"
-                ),
-            )
-
-        with c4:
-
-            kpi_card(
-                "Warehouse Health",
-                (
-                    "HEALTHY"
-                    if failed_checks == 0
-                    else "ATTENTION"
-                ),
-                "Derived from validation",
-                status=quality_status,
-            )
-
-    st.write("")
-
-    section_header(
-        "Validation Details",
-        "Individual Quality Checks",
+    st.markdown(
+        '<div class="section-title">'
+        'Pipeline Run History'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    if not quality_checks.empty:
+    if history_df.empty:
 
-        display = (
-            quality_checks.copy()
+        st.info(
+            "No pipeline history available."
         )
 
-        display["status"] = (
-            display["passed"]
-            .map(
-                {
-                    True: "PASS",
-                    False: "FAIL",
-                }
-            )
-        )
+        return
 
-        wanted_columns = [
-            column
-            for column in [
-                "status",
-                "check_name",
-                "check_value",
-                "expectation",
-                "details",
-                "checked_at",
-            ]
-            if column
-            in display.columns
-        ]
-
-        display = display[
-            wanted_columns
-        ]
-
-        st.dataframe(
-            display,
-            width="stretch",
-            hide_index=True,
-            height=500,
-        )
-
-        st.download_button(
-            "Download quality report CSV",
-            data=csv_bytes(
-                display
-            ),
-            file_name=(
-                "data_quality_report.csv"
-            ),
-            mime="text/csv",
-        )
-
-    st.write("")
-
-    section_header(
-        "Observability",
-        "Pipeline Execution History",
-    )
-
-    if not pipeline_history.empty:
-
-        history = (
-            pipeline_history.copy()
-        )
-
-        history["started_at"] = (
-            pd.to_datetime(
-                history["started_at"],
-                errors="coerce",
-            )
-        )
-
-        history_columns = [
-            column
-            for column in [
-                "pipeline_run_key",
+    started_col = (
+        first_existing_column(
+            history_df,
+            [
                 "started_at",
-                "duration_seconds",
-                "status",
-                "total_checks",
-                "passed_checks",
-                "failed_checks",
-                "error_message",
-            ]
-            if column
-            in history.columns
-        ]
-
-        st.dataframe(
-            history[
-                history_columns
+                "start_time",
             ],
-            width="stretch",
-            hide_index=True,
         )
-
-        successful = (
-            history[
-                history["status"]
-                == "SUCCESS"
-            ]
-            .copy()
-        )
-
-        if not successful.empty:
-
-            fig = px.bar(
-                successful,
-
-                x="started_at",
-                y="duration_seconds",
-
-                title=(
-                    "Pipeline Execution Duration"
-                ),
-
-                labels={
-                    "started_at":
-                        "Pipeline Run",
-                    "duration_seconds":
-                        "Duration (seconds)",
-                },
-            )
-
-            style_chart(
-                fig,
-                400,
-            )
-
-            st.plotly_chart(
-                fig,
-                width="stretch",
-            )
-
-    st.write("")
-
-    section_header(
-        "Warehouse",
-        "Fact Table Volume",
     )
 
-    if not warehouse_volume.empty:
+    duration_col = (
+        first_existing_column(
+            history_df,
+            [
+                "duration_seconds",
+                "duration",
+            ],
+        )
+    )
 
-        st.dataframe(
-            warehouse_volume,
-            width="stretch",
-            hide_index=True,
+    status_col = (
+        first_existing_column(
+            history_df,
+            [
+                "status",
+            ],
+        )
+    )
+
+    if started_col:
+
+        history_df[
+            started_col
+        ] = pd.to_datetime(
+            history_df[
+                started_col
+            ],
+            errors="coerce",
         )
 
-        fig = px.bar(
-            warehouse_volume,
+        history_df = (
+            history_df
+            .sort_values(
+                started_col
+            )
+            .reset_index(
+                drop=True
+            )
+        )
 
-            x="dataset",
-            y="row_count",
+    if (
+        started_col
+        and duration_col
+    ):
 
-            title=(
-                "Operational Warehouse Volume"
+        history_figure = px.bar(
+            history_df,
+            x=started_col,
+            y=duration_col,
+            color=(
+                status_col
+                if status_col
+                else None
             ),
-
-            labels={
-                "dataset": "",
-                "row_count": "Rows",
+            title=(
+                "Pipeline Execution Duration"
+            ),
+            color_discrete_map={
+                "SUCCESS": "#22C55E",
+                "FAILED": "#EF4444",
+                "RUNNING": "#38BDF8",
             },
         )
 
-        style_chart(
-            fig,
+        configure_plot(
+            history_figure,
             400,
         )
 
         st.plotly_chart(
-            fig,
-            width="stretch",
+            history_figure,
+            use_container_width=True,
+        )
+
+    with st.expander(
+        "View Pipeline Run History"
+    ):
+
+        st.dataframe(
+            history_df.sort_values(
+                started_col,
+                ascending=False,
+            )
+            if started_col
+            else history_df,
+            use_container_width=True,
+            hide_index=True,
         )
 
 
 # ============================================================
-# FOOTER
+# PAGE ROUTER
 # ============================================================
 
-st.html(
-    """
-    <div style="
-        margin-top:48px;
-        padding-top:18px;
+if page == "Executive":
 
-        border-top:
-            1px solid
-            rgba(148,163,184,0.10);
+    render_executive_page()
 
-        color:#64748b;
-        font-size:11px;
+elif page == "Offshore Operations":
 
-        display:flex;
-        justify-content:space-between;
-    ">
+    render_offshore_page()
 
-        <span>
-            Oil & Gas Data Engineering Platform
-        </span>
+elif page == "Rig Market":
 
-        <span>
-            Python · PostgreSQL · Streamlit · Plotly
-        </span>
+    render_rig_page()
 
-    </div>
-    """
-)
+elif page == "Energy Intelligence":
+
+    render_energy_page()
+
+elif page == "Data Quality":
+
+    render_quality_page()
