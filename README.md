@@ -176,6 +176,15 @@ oil-gas-data-engineering/
 └── README.md
 ```
 
+## Docker
+
+The project can run in a reproducible Docker environment using Docker Compose.
+
+### Start PostgreSQL
+
+```bash
+docker compose up -d postgres
+
 ---
 
 # 🏗️ Project Overview
